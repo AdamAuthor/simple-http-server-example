@@ -2,7 +2,12 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
+	"kbtu_go_6/internal/models"
+	"kbtu_go_6/internal/store"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,51 +17,104 @@ import (
 type Server struct {
 	ctx        context.Context
 	idleConsCh chan struct{}
-	Address    string
+
+	// не самая лучшая практика. Обычно делается на уровне 3 слоев:
+	// бизнес логика, HTTP хэндлеры, база данных (в рамка курса ок)
+	store   store.Store
+	Address string
 }
 
 // NewServer is the function for creating new server
 // Здесь мы создаём свой сервер
-func NewServer(ctx context.Context, address string) *Server {
+func NewServer(ctx context.Context, address string, store store.Store) *Server {
 	return &Server{
 		ctx:        ctx,
 		idleConsCh: make(chan struct{}),
-		Address:    address,
+		store:      store,
+
+		Address: address,
 	}
 }
 
-// adder is the function for addition numbers in our URL
-func adder(w http.ResponseWriter, r *http.Request) {
-	str := r.URL.Path[1:]
-	sum := 0
-	for _, nStr := range str {
-		n, err := strconv.Atoi(string(nStr))
-		if err != nil {
-			_, _ = fmt.Fprintf(w, "Error is %v", err)
+// basicHandler был создан для инкапсуляции логики настройки мультиплексера
+// К тому же, вместо использования мультиплексера, используется роутер
+func (s *Server) basicHandler() chi.Router {
+	r := chi.NewRouter()
+
+	// Create
+	r.Post("/laptops", func(w http.ResponseWriter, r *http.Request) {
+		laptop := new(models.Laptop)
+		if err := json.NewDecoder(r.Body).Decode(laptop); err != nil {
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
 		}
 
-		sum += n
-	}
-	_, _ = fmt.Fprintf(w, "Sum of all nums: %d", sum)
+		err := s.store.Create(r.Context(), laptop)
+		if err != nil {
+			return
+		}
+	})
+
+	// Read All
+	r.Get("/laptops", func(w http.ResponseWriter, r *http.Request) {
+		laptops, err := s.store.All(r.Context())
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+
+		render.JSON(w, r, laptops)
+	})
+
+	// Read by id
+	r.Get("/laptops/{id}", func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return
+		}
+
+		laptop, err := s.store.ByID(r.Context(), id)
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+
+		render.JSON(w, r, laptop)
+	})
+
+	// Update
+	r.Put("/laptops", func(w http.ResponseWriter, r *http.Request) {
+		laptop := new(models.Laptop)
+		if err := json.NewDecoder(r.Body).Decode(laptop); err != nil {
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+
+		err := s.store.Update(r.Context(), laptop)
+		if err != nil {
+			return
+		}
+	})
+
+	// Delete
+	r.Delete("/laptops/{id}", func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return
+		}
+		_ = s.store.Delete(r.Context(), id)
+	})
+
+	return r
 }
 
 // Run is the function for running server
-// А здесь этот сервер мы запускаем
 func (s *Server) Run() error {
-
-	mux := http.NewServeMux()
-
-	//Standard handler for printing "Hello, World!"
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("Hello, World!"))
-	})
-
-	//Handler for addition 1, 2 and 3
-	mux.HandleFunc("/123", adder)
-
 	srv := &http.Server{
 		Addr:         s.Address,
-		Handler:      mux,
+		Handler:      s.basicHandler(),
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 30,
 	}
@@ -77,7 +135,8 @@ func (s *Server) ListenCtxForGT(srv *http.Server) {
 	}
 
 	log.Println("[HTTP] Processed all idle connections")
-	close(s.idleConsCh) // как только закрывается канал, функция WaitForGT завершается
+	close(s.idleConsCh)
+	// как только закрывается канал, функция WaitForGT завершается
 	// и наш сервер полностью завершает работу
 }
 
