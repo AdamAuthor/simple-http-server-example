@@ -42,69 +42,165 @@ func (s *Server) basicHandler() chi.Router {
 	r := chi.NewRouter()
 
 	// Create
-	r.Post("/laptops", func(w http.ResponseWriter, r *http.Request) {
-		laptop := new(models.Laptop)
-		if err := json.NewDecoder(r.Body).Decode(laptop); err != nil {
+	r.Post("/categories", func(w http.ResponseWriter, r *http.Request) {
+		category := new(models.Category)
+		if err := json.NewDecoder(r.Body).Decode(category); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
 			return
 		}
 
-		err := s.store.Create(r.Context(), laptop)
+		err := s.store.Categories().Create(r.Context(), category)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
 			return
 		}
 	})
 
 	// Read All
-	r.Get("/laptops", func(w http.ResponseWriter, r *http.Request) {
-		laptops, err := s.store.All(r.Context())
+	r.Get("/categories", func(w http.ResponseWriter, r *http.Request) {
+		categories, err := s.store.Categories().All(r.Context())
 		if err != nil {
-			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
 			return
 		}
 
-		render.JSON(w, r, laptops)
+		render.JSON(w, r, categories)
 	})
 
 	// Read by id
-	r.Get("/laptops/{id}", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/categories/{id}", func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return
-		}
-
-		laptop, err := s.store.ByID(r.Context(), id)
-		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
 			return
 		}
 
-		render.JSON(w, r, laptop)
+		category, err := s.store.Categories().ByID(r.Context(), id)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+
+		render.JSON(w, r, category)
 	})
 
 	// Update
-	r.Put("/laptops", func(w http.ResponseWriter, r *http.Request) {
-		laptop := new(models.Laptop)
-		if err := json.NewDecoder(r.Body).Decode(laptop); err != nil {
+	r.Put("/categories", func(w http.ResponseWriter, r *http.Request) {
+		category := new(models.Category)
+		if err := json.NewDecoder(r.Body).Decode(category); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
 			return
 		}
 
-		err := s.store.Update(r.Context(), laptop)
+		err := s.store.Categories().Update(r.Context(), category)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
 			return
 		}
 	})
 
 	// Delete
-	r.Delete("/laptops/{id}", func(w http.ResponseWriter, r *http.Request) {
+	r.Delete("/categories/{id}", func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
 			return
 		}
-		_ = s.store.Delete(r.Context(), id)
+		if err = s.store.Categories().Delete(r.Context(), id); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+	})
+
+	r.Post("/goods", func(w http.ResponseWriter, r *http.Request) {
+		good := new(models.Good)
+		if err := json.NewDecoder(r.Body).Decode(good); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+
+		err := s.store.Goods().Create(r.Context(), good)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+	})
+
+	// Read All
+	r.Get("/goods", func(w http.ResponseWriter, r *http.Request) {
+		goods, err := s.store.Goods().All(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+
+		render.JSON(w, r, goods)
+	})
+
+	// Read by id
+	r.Get("/goods/{id}", func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+		}
+
+		good, err := s.store.Goods().ByID(r.Context(), id)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+
+		render.JSON(w, r, good)
+	})
+
+	// Update
+	r.Put("/goods", func(w http.ResponseWriter, r *http.Request) {
+		good := new(models.Good)
+		if err := json.NewDecoder(r.Body).Decode(good); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+
+		err := s.store.Goods().Update(r.Context(), good)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
+	})
+
+	// Delete
+	r.Delete("/goods/{id}", func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "Unknown error: %v", err)
+			return
+		}
+		if err = s.store.Goods().Delete(r.Context(), id); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "DB err: %v", err)
+			return
+		}
 	})
 
 	return r

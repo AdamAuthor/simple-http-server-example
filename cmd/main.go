@@ -3,19 +3,25 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
 	"kbtu_go_6/internal/http"
-	"kbtu_go_6/internal/store/inmemory"
+	"kbtu_go_6/internal/store/postgres"
+	"log"
+	"os"
 )
 
 func main() {
-	// контекст с таймаутом
-	// отправляем этот контекст в сервер.
-	// Спустя время контекст взрывается, и происходит Graceful Shutdown.
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	//defer cancel()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	url := os.Getenv("URL")
 
-	// создаём базу с ноутбуками
-	store := inmemory.NewDB()
+	store := postgres.NewDB()
+	if err := store.Connect(url); err != nil {
+		panic(err)
+	}
+	defer store.Close()
 
 	//Creating and run new server
 	srv := http.NewServer(context.Background(), ":8080", store)

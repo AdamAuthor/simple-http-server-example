@@ -6,18 +6,24 @@ import (
 )
 
 type Store interface {
-	Create(ctx context.Context, laptop *models.Laptop) error
-	All(ctx context.Context) ([]*models.Laptop, error)
-	ByID(ctx context.Context, id int) (*models.Laptop, error)
-	Update(ctx context.Context, laptop *models.Laptop) error
+	Connect(url string) error
+	Close() error
+	Categories() CategoriesRepository
+	Goods() GoodsRepository
+}
+
+type CategoriesRepository interface {
+	Create(ctx context.Context, category *models.Category) error
+	All(ctx context.Context) ([]*models.Category, error)
+	ByID(ctx context.Context, id int) (*models.Category, error)
+	Update(ctx context.Context, category *models.Category) error
 	Delete(ctx context.Context, id int) error
 }
 
-// in future !!!
-//type LaptopsRepository interface {
-//	Create(ctx context.Context, laptop *models.Laptop) error
-//	All(ctx context.Context) ([]*models.Laptop, error)
-//	ByID(ctx context.Context, id int) (*models.Laptop, error)
-//	Update(ctx context.Context, laptop *models.Laptop) error
-//	Delete(ctx context.Context, id int) error
-//}
+type GoodsRepository interface {
+	Create(ctx context.Context, good *models.Good) error
+	All(ctx context.Context) ([]*models.Good, error)
+	ByID(ctx context.Context, id int) (*models.Good, error)
+	Update(ctx context.Context, good *models.Good) error
+	Delete(ctx context.Context, id int) error
+}
