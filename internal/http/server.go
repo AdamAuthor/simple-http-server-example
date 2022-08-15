@@ -60,7 +60,13 @@ func (s *Server) basicHandler() chi.Router {
 
 	// Read All
 	r.Get("/categories", func(w http.ResponseWriter, r *http.Request) {
-		categories, err := s.store.Categories().All(r.Context())
+		queryValues := r.URL.Query()
+		filter := &models.CategoriesFilter{}
+
+		if searchQuery := queryValues.Get("query"); searchQuery != "" {
+			filter.Query = &searchQuery
+		}
+		categories, err := s.store.Categories().All(r.Context(), filter)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = fmt.Fprintf(w, "DB err: %v", err)
